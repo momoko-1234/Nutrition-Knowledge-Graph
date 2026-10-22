@@ -67,7 +67,7 @@ Nutrition Knowledge Graph 將這些資訊整理成可以搜尋、篩選與互動
 - `index.html`：加入搜尋、篩選與響應式操作介面的網站首頁。
 - `bidirectional_nutritional_graph.html`：最初的雙向營養知識圖譜原始檔。
 - `CONTRIBUTING.md`：資料與功能貢獻說明。
-- `.github/workflows/pages.yml`：GitHub Pages 自動部署流程。
+- `gh-pages` branch：GitHub Pages 的網站發布版本。
 
 ## 在本機執行
 
@@ -80,6 +80,17 @@ python3 -m http.server 8000
 ```
 
 瀏覽器開啟 [http://localhost:8000](http://localhost:8000)。由於 D3.js 從 CDN 載入，第一次開啟時需要網路連線。
+
+## 啟用 GitHub Pages
+
+Repository 已準備好 `gh-pages` 發布分支。Repository 擁有者只需設定一次：
+
+1. 前往 **Settings → Pages**。
+2. 在 **Build and deployment** 的 Source 選擇 **Deploy from a branch**。
+3. Branch 選擇 **gh-pages**，資料夾選擇 **/ (root)**。
+4. 按下 **Save**。
+
+完成後網站會發布至 [https://momoko-1234.github.io/Nutrition-Knowledge-Graph/](https://momoko-1234.github.io/Nutrition-Knowledge-Graph/)。
 
 ## 參與開源專案
 
