@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bidirectional Nutritional Knowledge Graph</title>
+    <!-- D3.js v7 -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        :root {
+            /* Cyber-scientific Aesthetic */
+            --bg-base: #060913;
+            --bg-grid: rgba(255, 255, 255, 0.03);
+            --panel-bg: rgba(13, 17, 33, 0.75);
+            --panel-border: rgba(255, 255, 255, 0.15);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-synergy: #fbbf24; /* Yellow */
+            
+            /* Node Colors */
+            --color-food: #4ade80;     /* Green */
+            --color-nutrient: #c084fc; /* Purple */
+            --color-benefit: #f472b6;  /* Pink */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            background-image: 
+                linear-gradient(var(--bg-grid) 1px, transparent 1px),
+                linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+
+        #graph-container {
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        #graph-container:active {
+            cursor: grabbing;
+        }
+
+        /* Glassmorphism Sidebar */
+        #sidebar {
+            position: absolute;
+            top: 24px;
+            right: -450px;
+            width: 380px;
+            max-height: calc(100vh - 48px);
+            background: var(--panel-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--panel-border);
+            border-radius: 24px;
+            padding: 28px;
+            box-shadow: -10px 10px 50px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255,255,255,0.05);
+            transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 20;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #sidebar.active {
+            right: 24px;
+        }
+
+        #sidebar::-webkit-scrollbar { width: 6px; }
+        #sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+
+        .tag {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+        .tag.food { background: rgba(74, 222, 128, 0.15); color: var(--color-food); border: 1px solid rgba(74, 222, 128, 0.3); }
+        .tag.nutrient { background: rgba(192, 132, 252, 0.15); color: var(--color-nutrient); border: 1px solid rgba(192, 132, 252, 0.3); }
+        .tag.benefit { background: rgba(244, 114, 182, 0.15); color: var(--color-benefit); border: 1px solid rgba(244, 114, 182, 0.3); }
+
+        #panel-title {
+            font-size: 1.8rem;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #panel-desc {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--text-muted);
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .section-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #cbd5e1;
+            margin: 20px 0 12px 0;
+        }
+
+        .relations-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .relation-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        .relation-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .relation-meta {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .relation-nodes {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+
+        /* Legend */
+        #legend {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--panel-border);
+            z-index: 10;
+        }
+        .legend-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+        .legend-item { 
+            display: flex; 
+            align-items: center; 
+            margin-bottom: 10px; 
+            font-size: 0.85rem; 
+            color: #cbd5e1;
+        }
+        .legend-item:last-child { margin-bottom: 0; }
+        .legend-color { 
+            width: 14px; 
+            height: 14px; 
+            border-radius: 50%; 
+            margin-right: 12px; 
+        }
+
+        /* D3 SVG Styling */
+        .node circle {
+            stroke: #fff;
+            stroke-width: 1.5px;
+            cursor: pointer;
+            transition: stroke-width 0.2s, filter 0.3s;
+        }
+        .node:hover circle {
+            stroke-width: 3px;
+        }
+        .node text {
+            font-size: 11px;
+            fill: #e2e8f0;
+            font-weight: 500;
+            pointer-events: none;
+            text-shadow: 0 2px 6px rgba(0,0,0,1), 0 0 4px rgba(0,0,0,0.8);
+        }
+        .link {
+            fill: none;
+            stroke-opacity: 0.3;
+            transition: stroke-opacity 0.3s, stroke-width 0.3s;
+        }
+        .link.highlight {
+            stroke-opacity: 1;
+            stroke-width: 2.5px !important;
+        }
+        
+        /* Close button for sidebar */
+        .close-btn {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-muted);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .close-btn:hover {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="graph-container"></div>
+    
+    <div id="legend">
+        <div class="legend-title">Taxonomy Legend</div>
+        <div class="legend-item"><div class="legend-color" style="background: var(--color-food); box-shadow: 0 0 10px var(--color-food);"></div>Biological Source (Food)</div>
+        <div class="legend-item"><div class="legend-color" style="background: var(--color-nutrient); box-shadow: 0 0 10px var(--color-nutrient);"></div>Molecular Compound (Nutrient)</div>
+        <div class="legend-item"><div class="legend-color" style="background: var(--color-benefit); box-shadow: 0 0 10px var(--color-benefit);"></div>Physiological Benefit</div>
+        <div style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+            <div class="legend-item">
+                <svg width="24" height="12" style="margin-right: 6px;"><path d="M0,6 L20,6" stroke="rgba(255,255,255,0.6)" stroke-width="2" marker-end="url(#arrow-directional)"/></svg>
+                Directional Flow
+            </div>
+            <div class="legend-item">
+                <svg width="24" height="12" style="margin-right: 6px;"><path d="M0,6 L20,6" stroke="var(--accent-synergy)" stroke-width="2" stroke-dasharray="4,4" marker-end="url(#arrow-synergy)"/></svg>
+                Synergistic Interaction
+            </div>
+        </div>
+    </div>
+
+    <div id="sidebar">
+        <button class="close-btn" onclick="closeSidebar()">✕</button>
+        <div class="tag" id="panel-type">Type</div>
+        <h2 id="panel-title">Node Name</h2>
+        <p id="panel-desc">Scientific description here.</p>
+        
+        <h3 class="section-title">Network Interactions</h3>
+        <ul class="relations-list" id="panel-relations">
+            <!-- Dynamically populated via JS -->
+        </ul>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. DATASET: 100 Nodes & Complex Linkages
+        // ==========================================
+        const graphData = {
+            nodes: [
+                // FOODS (35)
+                { id: "Tomato", type: "food", desc: "A red berry fruit containing large amounts of lycopene. Cooking increases lycopene bioavailability." },
+                { id: "Broccoli", type: "food", desc: "Cruciferous vegetable heavily researched for its sulforaphane yielding capacity." },
+                { id: "Spinach", type: "food", desc: "Leafy green rich in non-heme iron, lutein, and calcium, though high in oxalates." },
+                { id: "Blueberry", type: "food", desc: "North American berry packed with neuroprotective anthocyanins." },
+                { id: "Kiwi", type: "food", desc: "Extremely nutrient-dense fruit with very high vitamin C and unique digestive enzymes." },
+                { id: "Apple", type: "food", desc: "Source of quercetin in the skin and soluble fiber (pectin) in the flesh." },
+                { id: "Avocado", type: "food", desc: "High in monounsaturated fats which aid the absorption of fat-soluble phytonutrients." },
+                { id: "Garlic", type: "food", desc: "Contains alliin, which converts to active allicin upon crushing or chewing." },
+                { id: "Onion", type: "food", desc: "Rich in quercetin and organosulfur compounds. Acts as a potent anti-inflammatory." },
+                { id: "Green Tea", type: "food", desc: "Unfermented tea leaves containing high levels of EGCG (epigallocatechin gallate)." },
+                { id: "Turmeric", type: "food", desc: "Rhizome containing curcumin. Requires fats or piperine for effective systemic absorption." },
+                { id: "Carrot", type: "food", desc: "Root vegetable famous for high beta-carotene content." },
+                { id: "Sweet Potato", type: "food", desc: "Complex carbohydrate rich in provitamin A and anthocyanins (if purple-fleshed)." },
+                { id: "Pumpkin", type: "food", desc: "Contains zeaxanthin and zinc (especially in the seeds)." },
+                { id: "Bell Pepper", type: "food", desc: "Red varieties are among the highest dietary sources of Vitamin C." },
+                { id: "Eggplant", type: "food", desc: "The dark purple skin contains nasunin, a powerful anthocyanin." },
+                { id: "Grapes", type: "food", desc: "Skins and seeds contain resveratrol and proanthocyanidins." },
+                { id: "Cranberry", type: "food", desc: "Contains A-type proanthocyanidins known for preventing bacterial adhesion." },
+                { id: "Guava", type: "food", desc: "Tropical fruit with exceptionally high vitamin C and lycopene content." },
+                { id: "Lemon", type: "food", desc: "Citrus fruit providing flavonoids and vitamin C." },
+                { id: "Papaya", type: "food", desc: "Tropical fruit containing the proteolytic enzyme papain." },
+                { id: "Pineapple", type: "food", desc: "Contains bromelain, an enzyme complex with systemic anti-inflammatory effects." },
+                { id: "Soybean", type: "food", desc: "Legume providing complete plant protein and isoflavones." },
+                { id: "Black Bean", type: "food", desc: "Legume with a dark coat rich in anthocyanins." },
+                { id: "Chia Seed", type: "food", desc: "Rich in plant-based Omega-3 (ALA) and mucilaginous fiber." },
+                { id: "Oat", type: "food", desc: "Whole grain known for its cholesterol-lowering beta-glucan fiber." },
+                { id: "Walnut", type: "food", desc: "Tree nut with the highest ratio of Omega-3 fatty acids." },
+                { id: "Almond", type: "food", desc: "Nut rich in Vitamin E and monounsaturated fats." },
+                { id: "Sesame", type: "food", desc: "Seed containing sesamin, a lignan with liver-protective properties." },
+                { id: "Quinoa", type: "food", desc: "Pseudocereal containing all essential amino acids and high magnesium." },
+                { id: "Kale", type: "food", desc: "Cruciferous green highly dense in Vitamin K1 and calcium." },
+                { id: "Cabbage", type: "food", desc: "Contains Vitamin U (S-methylmethionine), known for ulcer healing." },
+                { id: "Asparagus", type: "food", desc: "Contains high levels of glutathione, the master intracellular antioxidant." },
+                { id: "Celery", type: "food", desc: "Contains apigenin and phthalides which relax arterial walls." },
+                { id: "Bitter Melon", type: "food", desc: "Contains charantin, exhibiting insulin-like properties." },
+
+                // NUTRIENTS (40)
+                { id: "Lycopene", type: "nutrient", desc: "Fat-soluble carotenoid highly effective at quenching singlet oxygen." },
+                { id: "Vitamin C", type: "nutrient", desc: "Water-soluble electron donor essential for collagen synthesis and immunity." },
+                { id: "Sulforaphane", type: "nutrient", desc: "Isothiocyanate that powerfully induces the Nrf2 cellular defense pathway." },
+                { id: "Iron", type: "nutrient", desc: "Essential mineral for hemoglobin formation and oxygen transport." },
+                { id: "Anthocyanin", type: "nutrient", desc: "Water-soluble vacuolar pigments capable of crossing the blood-brain barrier." },
+                { id: "Lutein", type: "nutrient", desc: "Xanthophyll carotenoid that filters high-energy blue light in the macula." },
+                { id: "Dietary Fiber", type: "nutrient", desc: "Indigestible plant matter that ferments into short-chain fatty acids (SCFAs) in the gut." },
+                { id: "Beta-carotene", type: "nutrient", desc: "Provitamin A carotenoid critical for mucosal immunity." },
+                { id: "Vitamin E", type: "nutrient", desc: "Primary lipid-soluble antioxidant protecting cell membranes." },
+                { id: "Vitamin A", type: "nutrient", desc: "Essential for vision (rhodopsin formation) and cellular differentiation." },
+                { id: "Vitamin K", type: "nutrient", desc: "Required for blood coagulation and regulating calcium deposition in bones." },
+                { id: "Folate", type: "nutrient", desc: "Vitamin B9, crucial for DNA synthesis and methylation." },
+                { id: "Potassium", type: "nutrient", desc: "Intracellular electrolyte that balances sodium and regulates blood pressure." },
+                { id: "Magnesium", type: "nutrient", desc: "Cofactor in >300 enzymatic reactions, essential for ATP stability and nerve relaxation." },
+                { id: "Calcium", type: "nutrient", desc: "Structural mineral in bones/teeth and key intracellular signaling ion." },
+                { id: "Zinc", type: "nutrient", desc: "Trace mineral required for immune cell maturation and tissue repair." },
+                { id: "Allicin", type: "nutrient", desc: "Thiosulfinate exhibiting broad-spectrum antimicrobial properties." },
+                { id: "Quercetin", type: "nutrient", desc: "Flavonol that acts as a zinc ionophore and mast cell stabilizer." },
+                { id: "Catechin", type: "nutrient", desc: "Flavan-3-ol polyphenols that modulate metabolic and apoptotic pathways." },
+                { id: "Curcumin", type: "nutrient", desc: "Diarylheptanoid that downregulates COX-2 and LOX inflammatory enzymes." },
+                { id: "Resveratrol", type: "nutrient", desc: "Stilbenoid known to activate SIRT1 longevity genes." },
+                { id: "Proanthocyanidin", type: "nutrient", desc: "Oligomeric flavonoids with extreme antioxidant capacity and anti-adhesion effects." },
+                { id: "Citrus Bioflavonoids", type: "nutrient", desc: "Compounds (like hesperidin) that strengthen capillaries." },
+                { id: "Bromelain", type: "nutrient", desc: "Proteolytic enzyme complex with systemic anti-edema and anti-inflammatory properties." },
+                { id: "Isoflavones", type: "nutrient", desc: "Phytoestrogens that can selectively modulate estrogen receptors (SERMs)." },
+                { id: "Omega-3 (ALA)", type: "nutrient", desc: "Essential plant-based fatty acid, precursor to EPA/DHA, reduces inflammation." },
+                { id: "Beta-Glucan", type: "nutrient", desc: "Soluble fiber that binds bile acids and modulates immune macrophages." },
+                { id: "Sesamin", type: "nutrient", desc: "Lignan that protects the liver from oxidative damage and improves lipid metabolism." },
+                { id: "Vitamin U", type: "nutrient", desc: "S-methylmethionine, historically recognized for rapidly healing gastric ulcers." },
+                { id: "Glutathione", type: "nutrient", desc: "Tripeptide that acts as the body's master antioxidant and phase II detoxifier." },
+                { id: "Apigenin", type: "nutrient", desc: "Flavone that binds to GABA receptors, inducing mild sedation and neuroprotection." },
+                { id: "Charantin", type: "nutrient", desc: "Steroidal saponin with hypoglycemic properties." },
+                { id: "Papain", type: "nutrient", desc: "Cysteine protease that breaks down tough meat fibers and aids digestion." },
+                { id: "Soy Lecithin", type: "nutrient", desc: "Phosphatidylcholine source, acting as a natural emulsifier for lipids." },
+                { id: "Zeaxanthin", type: "nutrient", desc: "Isomer of lutein, concentrated in the central macula." },
+                { id: "Indole-3-Carbinol", type: "nutrient", desc: "Modulates estrogen metabolism via CYP450 pathways." },
+                { id: "Pectin", type: "nutrient", desc: "Soluble gel-forming fiber that slows glucose absorption." },
+                { id: "Phytic Acid", type: "nutrient", desc: "Inositol hexaphosphate; an antioxidant that can also chelate and inhibit mineral absorption." },
+                { id: "Chlorogenic Acid", type: "nutrient", desc: "Phenolic acid that inhibits glucose-6-phosphatase, regulating blood sugar." },
+                { id: "Monounsaturated Fat", type: "nutrient", desc: "Healthy fatty acids (oleic acid) that improve HDL/LDL ratios and cell membrane fluidity." },
+
+                // BENEFITS (25)
+                { id: "Antioxidant Defense", type: "benefit", desc: "Neutralization of reactive oxygen species (ROS) to prevent DNA damage." },
+                { id: "Cardiovascular Health", type: "benefit", desc: "Protection of vascular endothelium and prevention of lipid peroxidation." },
+                { id: "Anemia Relief", type: "benefit", desc: "Support for hemoglobin synthesis and oxygen transport." },
+                { id: "Eye Health", type: "benefit", desc: "Protection against macular degeneration and cataracts." },
+                { id: "Immune Support", type: "benefit", desc: "Enhancement of innate and adaptive immune cell function." },
+                { id: "Gut Health", type: "benefit", desc: "Maintenance of microbiome diversity and intestinal barrier integrity." },
+                { id: "Blood Sugar Control", type: "benefit", desc: "Improvement of insulin sensitivity and moderation of glucose spikes." },
+                { id: "Blood Pressure Regulation", type: "benefit", desc: "Vasodilation and modulation of the renin-angiotensin system." },
+                { id: "Bone Health", type: "benefit", desc: "Support for osteoblast activity and matrix mineralization." },
+                { id: "Neuroprotection", type: "benefit", desc: "Defense of neurons against neurotoxins and age-related decline." },
+                { id: "Anti-inflammatory", type: "benefit", desc: "Suppression of chronic systemic inflammation pathways (NF-kB, COX-2)." },
+                { id: "Digestion Aid", type: "benefit", desc: "Facilitation of macronutrient breakdown and gastrointestinal motility." },
+                { id: "Collagen Synthesis", type: "benefit", desc: "Production and cross-linking of structural proteins in skin and joints." },
+                { id: "Liver Detoxification", type: "benefit", desc: "Upregulation of hepatic phase I & II detoxification enzymes." },
+                { id: "Sleep Quality", type: "benefit", desc: "Modulation of central nervous system for restorative sleep." },
+                { id: "Edema Relief", type: "benefit", desc: "Reduction of tissue swelling and fluid retention." },
+                { id: "Cholesterol Reduction", type: "benefit", desc: "Inhibition of cholesterol synthesis or enhancement of its excretion." },
+                { id: "Metabolism Boost", type: "benefit", desc: "Upregulation of mitochondrial efficiency and thermogenesis." },
+                { id: "Antimicrobial", type: "benefit", desc: "Direct inhibition of bacterial, viral, or fungal pathogens." },
+                { id: "Allergy Relief", type: "benefit", desc: "Inhibition of histamine release and mast cell degranulation." },
+                { id: "Urinary Tract Health", type: "benefit", desc: "Prevention of pathogenic adhesion to the urothelium." },
+                { id: "Hormonal Balance", type: "benefit", desc: "Modulation of endocrine signaling and steroid hormone clearance." },
+                { id: "Mucosal Repair", type: "benefit", desc: "Acceleration of healing in the gastrointestinal and respiratory linings." },
+                { id: "Cancer Risk Reduction", type: "benefit", desc: "Induction of apoptosis in aberrant cells and inhibition of angiogenesis." },
+                { id: "Mood Stability", type: "benefit", desc: "Support for neurotransmitter synthesis and nervous system calming." }
+            ],
+            links: []
+        };
+
+        // Helper to mass-generate relationships
+        function addLinks(sources, targets, relation, type) {
+            sources.forEach(s => {
+                targets.forEach(t => {
+                    graphData.links.push({ source: s, target: t, relation, type });
+                });
+            });
+        }
+
+        // --- DIRECTIONAL LINKS (Food -> Nutrient) ---
+        addLinks(["Tomato", "Guava"], ["Lycopene", "Vitamin C", "Potassium"], "Contains high levels of", "directional");
+        addLinks(["Broccoli", "Kale", "Cabbage"], ["Sulforaphane", "Vitamin C", "Dietary Fiber"], "Yields upon chewing", "directional");
+        addLinks(["Spinach", "Kale"], ["Iron", "Lutein", "Calcium", "Vitamin K"], "Rich botanical source", "directional");
+        addLinks(["Blueberry", "Eggplant", "Grapes", "Black Bean", "Sweet Potato"], ["Anthocyanin"], "Concentrated pigment", "directional");
+        addLinks(["Kiwi", "Bell Pepper", "Lemon"], ["Vitamin C", "Dietary Fiber"], "High density source", "directional");
+        addLinks(["Apple", "Onion"], ["Quercetin", "Pectin"], "Primary flavonoid/fiber source", "directional");
+        addLinks(["Avocado", "Almond"], ["Monounsaturated Fat", "Vitamin E"], "Provides healthy lipids", "directional");
+        addLinks(["Garlic", "Onion"], ["Allicin"], "Enzymatically produces", "directional");
+        addLinks(["Green Tea"], ["Catechin"], "Abundant in unfermented leaves", "directional");
+        addLinks(["Turmeric"], ["Curcumin"], "Active rhizome compound", "directional");
+        addLinks(["Carrot", "Sweet Potato", "Pumpkin"], ["Beta-carotene", "Vitamin A"], "Major dietary source", "directional");
+        addLinks(["Pumpkin"], ["Zeaxanthin", "Zinc"], "Seed and flesh nutrients", "directional");
+        addLinks(["Grapes"], ["Resveratrol", "Proanthocyanidin"], "Found in skin and seeds", "directional");
+        addLinks(["Cranberry"], ["Proanthocyanidin", "Vitamin C"], "A-type PACs origin", "directional");
+        addLinks(["Papaya"], ["Papain", "Beta-carotene"], "Native enzyme", "directional");
+        addLinks(["Pineapple"], ["Bromelain", "Vitamin C"], "Extracted from stem/core", "directional");
+        addLinks(["Soybean"], ["Isoflavones", "Soy Lecithin", "Calcium"], "Primary legume source", "directional");
+        addLinks(["Chia Seed", "Walnut"], ["Omega-3 (ALA)", "Dietary Fiber"], "Plant-based lipids", "directional");
+        addLinks(["Oat"], ["Beta-Glucan", "Magnesium", "Dietary Fiber"], "Primary grain source", "directional");
+        addLinks(["Sesame"], ["Sesamin", "Calcium", "Iron"], "Lignan source", "directional");
+        addLinks(["Quinoa"], ["Magnesium", "Iron", "Dietary Fiber"], "Pseudocereal content", "directional");
+        addLinks(["Asparagus"], ["Glutathione", "Folate"], "Rich intracellular source", "directional");
+        addLinks(["Celery"], ["Apigenin", "Potassium"], "Flavone and electrolyte provider", "directional");
+        addLinks(["Bitter Melon"], ["Charantin", "Vitamin C"], "Active steroidal saponin", "directional");
+        addLinks(["Broccoli", "Kale"], ["Indole-3-Carbinol"], "Cruciferous derivative", "directional");
+        addLinks(["Apple", "Green Tea"], ["Chlorogenic Acid"], "Phenolic acid source", "directional");
+        addLinks(["Spinach", "Quinoa", "Oat"], ["Phytic Acid"], "Forms mineral complexes", "directional");
+
+        // --- SYNERGISTIC LINKS (Nutrient <-> Nutrient) [Bidirectional/Dashed Yellow] ---
+        addLinks(["Vitamin C"], ["Iron"], "Reduces Fe3+ to highly absorbable Fe2+", "synergy");
+        addLinks(["Iron"], ["Vitamin C"], "Depends on it for optimal intestinal absorption", "synergy");
+        addLinks(["Vitamin C"], ["Vitamin E"], "Regenerates oxidized Vitamin E back to active state", "synergy");
+        addLinks(["Vitamin E"], ["Vitamin C"], "Works in lipid-aqueous antioxidant network", "synergy");
+        addLinks(["Monounsaturated Fat"], ["Lycopene", "Lutein", "Beta-carotene", "Vitamin E", "Vitamin A", "Vitamin K"], "Lipids strictly required for intestinal absorption", "synergy");
+        addLinks(["Lutein"], ["Zeaxanthin"], "Works synergistically in the macular pigment", "synergy");
+        addLinks(["Calcium"], ["Magnesium"], "Opposing/balancing actions in nerve and muscle function", "synergy");
+        addLinks(["Citrus Bioflavonoids"], ["Vitamin C"], "Prevents rapid oxidation of Vitamin C in plasma", "synergy");
+        addLinks(["Phytic Acid"], ["Iron", "Calcium", "Zinc"], "Chelates and inhibits systemic absorption", "synergy"); // Antagonistic but represented as interaction network
+
+        // --- DIRECTIONAL LINKS (Nutrient -> Benefit) ---
+        addLinks(["Lycopene", "Anthocyanin", "Catechin", "Resveratrol", "Vitamin C", "Vitamin E", "Glutathione"], ["Antioxidant Defense", "Cancer Risk Reduction", "Anti-inflammatory"], "Drives mechanism", "directional");
+        addLinks(["Lycopene", "Monounsaturated Fat", "Omega-3 (ALA)", "Beta-Glucan"], ["Cardiovascular Health", "Cholesterol Reduction"], "Improves lipid profile/endothelium", "directional");
+        addLinks(["Iron", "Folate", "Vitamin C"], ["Anemia Relief"], "Substrates for erythropoiesis", "directional");
+        addLinks(["Lutein", "Zeaxanthin", "Anthocyanin", "Beta-carotene", "Vitamin A"], ["Eye Health"], "Protects retina & macula", "directional");
+        addLinks(["Vitamin C", "Zinc", "Allicin", "Beta-Glucan"], ["Immune Support", "Antimicrobial"], "Stimulates leukocytes/macrophages", "directional");
+        addLinks(["Dietary Fiber", "Pectin", "Beta-Glucan"], ["Gut Health", "Digestion Aid", "Blood Sugar Control"], "Feeds microbiome & slows emptying", "directional");
+        addLinks(["Potassium", "Apigenin", "Magnesium"], ["Blood Pressure Regulation", "Edema Relief"], "Relaxes vasculature & clears sodium", "directional");
+        addLinks(["Calcium", "Vitamin K", "Magnesium", "Isoflavones"], ["Bone Health"], "Matrix mineralization & osteoblast support", "directional");
+        addLinks(["Anthocyanin", "Omega-3 (ALA)", "Resveratrol", "Folate"], ["Neuroprotection"], "Crosses blood-brain barrier", "directional");
+        addLinks(["Curcumin", "Bromelain", "Quercetin", "Omega-3 (ALA)"], ["Anti-inflammatory", "Allergy Relief"], "Inhibits COX-2/Histamine release", "directional");
+        addLinks(["Papain", "Bromelain", "Vitamin U"], ["Digestion Aid", "Mucosal Repair"], "Enzymatic breakdown & tissue healing", "directional");
+        addLinks(["Vitamin C"], ["Collagen Synthesis"], "Required cofactor for prolyl hydroxylase", "directional");
+        addLinks(["Sulforaphane", "Glutathione", "Indole-3-Carbinol", "Sesamin"], ["Liver Detoxification"], "Upregulates Phase II enzymes", "directional");
+        addLinks(["Magnesium", "Calcium", "Apigenin"], ["Sleep Quality", "Mood Stability"], "Calms central nervous system (GABA)", "directional");
+        addLinks(["Allicin", "Catechin", "Resveratrol"], ["Antimicrobial"], "Disrupts pathogen cell walls", "directional");
+        addLinks(["Proanthocyanidin"], ["Urinary Tract Health"], "Inhibits fimbriae adhesion of E. coli", "directional");
+        addLinks(["Isoflavones", "Indole-3-Carbinol"], ["Hormonal Balance"], "Modulates estrogen receptor affinity", "directional");
+        addLinks(["Charantin", "Chlorogenic Acid", "Dietary Fiber"], ["Blood Sugar Control"], "Activates AMPK / Inhibits glucosidase", "directional");
+
+
+        // ==========================================
+        // 2. D3.JS INITIALIZATION & PHYSICS
+        // ==========================================
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        const svg = d3.select("#graph-container").append("svg")
+            .attr("width", "100%")
+            .attr("height", "100%")
+            .call(d3.zoom().scaleExtent([0.15, 4]).on("zoom", (event) => g.attr("transform", event.transform)))
+            .on("click", resetSelection);
+
+        const g = svg.append("g");
+
+        // SVG Filters for glowing nodes
+        const defs = svg.append("defs");
+        const filter = defs.append("filter").attr("id", "glow").attr("x", "-20%").attr("y", "-20%").attr("width", "140%").attr("height", "140%");
+        filter.append("feGaussianBlur").attr("stdDeviation", "4").attr("result", "blur");
+        const feMerge = filter.append("feMerge");
+        feMerge.append("feMergeNode").attr("in", "blur");
+        feMerge.append("feMergeNode").attr("in", "SourceGraphic");
+
+        // Directional Arrow Markers
+        defs.append("marker")
+            .attr("id", "arrow-directional")
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 26) // Distance from node center
+            .attr("refY", 0)
+            .attr("markerWidth", 5)
+            .attr("markerHeight", 5)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,-5L10,0L0,5")
+            .attr("fill", "rgba(255,255,255,0.4)");
+
+        // Synergistic Arrow Markers
+        defs.append("marker")
+            .attr("id", "arrow-synergy")
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 26)
+            .attr("refY", 0)
+            .attr("markerWidth", 5)
+            .attr("markerHeight", 5)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,-5L10,0L0,5")
+            .attr("fill", "var(--accent-synergy)");
+
+        // Color mapper
+        const getColor = (type) => {
+            if (type === 'food') return 'var(--color-food)';
+            if (type === 'nutrient') return 'var(--color-nutrient)';
+            if (type === 'benefit') return 'var(--color-benefit)';
+            return '#fff';
+        };
+
+        // Physics Simulation
+        const simulation = d3.forceSimulation(graphData.nodes)
+            .force("link", d3.forceLink(graphData.links).id(d => d.id).distance(140).strength(0.4))
+            .force("charge", d3.forceManyBody().strength(-350))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("collide", d3.forceCollide().radius(35).iterations(2));
+
+        // Draw Links
+        const link = g.append("g")
+            .attr("class", "links")
+            .selectAll("path")
+            .data(graphData.links)
+            .enter().append("path")
+            .attr("class", "link")
+            .attr("stroke", d => d.type === "synergy" ? "var(--accent-synergy)" : "rgba(255,255,255,0.4)")
+            .attr("stroke-width", d => d.type === "synergy" ? 1.5 : 1)
+            .attr("stroke-dasharray", d => d.type === "synergy" ? "5,5" : "none")
+            .attr("marker-end", d => `url(#arrow-${d.type})`);
+
+        // Draw Nodes
+        const node = g.append("g")
+            .attr("class", "nodes")
+            .selectAll("g")
+            .data(graphData.nodes)
+            .enter().append("g")
+            .attr("class", "node")
+            .call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended))
+            .on("click", handleNodeClick);
+
+        // Node Circles
+        node.append("circle")
+            .attr("r", d => d.type === 'benefit' ? 18 : (d.type === 'nutrient' ? 14 : 12))
+            .attr("fill", d => getColor(d.type))
+            .style("filter", "url(#glow)");
+
+        // Node Labels
+        node.append("text")
+            .attr("dx", 22)
+            .attr("dy", 4)
+            .text(d => d.id);
+
+        // Simulation Tick
+        simulation.on("tick", () => {
+            link.attr("d", d => {
+                const dx = d.target.x - d.source.x;
+                const dy = d.target.y - d.source.y;
+                // Add slight curve to synergistic links so bidirectional paths don't perfectly overlap
+                const dr = d.type === "synergy" ? Math.sqrt(dx * dx + dy * dy) * 2 : 0;
+                return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
+            });
+            node.attr("transform", d => `translate(${d.x},${d.y})`);
+        });
+
+        // ==========================================
+        // 3. INTERACTIVITY & UI UPDATES
+        // ==========================================
+        
+        function handleNodeClick(event, d) {
+            event.stopPropagation();
+            
+            // 1. Find connections
+            const connectedLinks = graphData.links.filter(l => l.source.id === d.id || l.target.id === d.id);
+            const connectedNodeIds = new Set();
+            connectedNodeIds.add(d.id);
+            connectedLinks.forEach(l => {
+                connectedNodeIds.add(l.source.id);
+                connectedNodeIds.add(l.target.id);
+            });
+
+            // 2. Visual Highlighting (Dim non-connected)
+            node.style("opacity", n => connectedNodeIds.has(n.id) ? 1 : 0.05);
+            link.classed("highlight", l => l.source.id === d.id || l.target.id === d.id)
+                .style("stroke-opacity", l => (l.source.id === d.id || l.target.id === d.id) ? 1 : 0.02)
+                .style("filter", l => (l.source.id === d.id || l.target.id === d.id) ? "drop-shadow(0 0 5px rgba(255,255,255,0.5))" : "none");
+
+            // 3. Update Sidebar Content
+            document.getElementById("panel-title").innerText = d.id;
+            document.getElementById("panel-desc").innerText = d.desc;
+            
+            const tag = document.getElementById("panel-type");
+            tag.innerText = d.type;
+            tag.className = `tag ${d.type}`;
+
+            const ul = document.getElementById("panel-relations");
+            ul.innerHTML = ""; // Clear existing
+
+            connectedLinks.forEach(rel => {
+                const isSource = rel.source.id === d.id;
+                const otherNode = isSource ? rel.target : rel.source;
+                const isSynergy = rel.type === "synergy";
+                
+                let relationText = "";
+                let arrowHtml = "";
+
+                if (isSynergy) {
+                    relationText = "Synergistic Interaction";
+                    arrowHtml = `<span style="color: var(--accent-synergy);">⟷</span>`;
+                } else if (isSource) {
+                    relationText = `Drives / Yields (${rel.relation})`;
+                    arrowHtml = `<span style="color: #38bdf8;">⟶</span>`;
+                } else {
+                    relationText = `Derived From / Requires (${rel.relation})`;
+                    arrowHtml = `<span style="color: #38bdf8;">⟵</span>`;
+                }
+
+                ul.innerHTML += `
+                    <li class="relation-item">
+                        <div class="relation-meta">${relationText}</div>
+                        <div class="relation-nodes">
+                            <span>${d.id}</span>
+                            ${arrowHtml}
+                            <span style="color: ${getColor(otherNode.type)};">${otherNode.id}</span>
+                        </div>
+                    </li>
+                `;
+            });
+
+            // 4. Open Sidebar
+            document.getElementById("sidebar").classList.add("active");
+
+            // 5. Pan camera slightly to accommodate sidebar
+            const targetX = width / 2 - 150;
+            svg.transition().duration(750).call(
+                d3.zoom().transform, 
+                d3.zoomIdentity.translate(targetX - d.x, height/2 - d.y).scale(1)
+            );
+        }
+
+        function resetSelection() {
+            // Revert all visual changes
+            node.style("opacity", 1);
+            link.classed("highlight", false)
+                .style("stroke-opacity", 0.3)
+                .style("filter", "none");
+            
+            closeSidebar();
+        }
+
+        window.closeSidebar = function() {
+            document.getElementById("sidebar").classList.remove("active");
+        }
+
+        // Drag functions
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        // Handle Window Resize
+        window.addEventListener('resize', () => {
+            svg.attr("width", window.innerWidth).attr("height", window.innerHeight);
+            simulation.force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2));
+            simulation.alpha(0.3).restart();
+        });
+
+    </script>
+</body>
+</html>
