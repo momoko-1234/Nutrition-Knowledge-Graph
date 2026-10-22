@@ -27,6 +27,26 @@ Nutrition Knowledge Graph 將這些資訊整理成可以搜尋、篩選與互動
 | Directional | 食物到營養素、營養素到效益 | 藍色實線 |
 | Synergy | 營養素間協同或交互作用 | 黃色虛線 |
 
+## 如何閱讀交互作用
+
+![Vitamin C 節點與營養交互作用](docs/assets/vitamin-c-interactions.png)
+
+上圖以 **Vitamin C** 為中心，展示單一營養素與食物來源、其他營養素及健康效益之間的關係：
+
+- **綠色節點（Food）**：Vitamin C 的食物來源，例如 Tomato、Guava、Broccoli、Kale、Kiwi、Lemon 與 Bell Pepper。
+- **紫色節點（Nutrient）**：營養素或活性成分。中央的 Vitamin C 會與 Iron、Vitamin E、Citrus Bioflavonoids 等營養素產生交互作用。
+- **粉紅色節點（Health Benefit）**：與 Vitamin C 相關的生理效益，例如 Immune Support、Collagen Synthesis、Antioxidant Defense 與 Anemia Relief。
+- **灰色實線（Directional Flow）**：表示具有方向性的關係，例如食物提供 Vitamin C，或 Vitamin C 參與某項生理作用。箭頭方向代表關係的來源與目標。
+- **黃色虛線（Synergistic Interaction）**：表示營養素間的協同或吸收交互作用。例如 Vitamin C 可促進非血基質鐵的吸收，也能參與 Vitamin E 的抗氧化循環。
+
+點擊任何節點後，系統會淡化無直接關係的內容，只保留與該節點相連的網路。右側面板會列出：
+
+1. 節點類型與基本說明。
+2. 關係是由目前節點指向其他節點，還是由其他節點指向目前節點。
+3. 食物來源、營養素交互作用及相關健康效益。
+
+圖譜用於呈現資訊關係，不代表所有連線都是臨床因果或適用於每一位使用者；使用時仍應查證資料來源。
+
 ## 操作方式
 
 ### 搜尋與定位
