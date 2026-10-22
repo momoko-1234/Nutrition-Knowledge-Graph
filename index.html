@@ -631,7 +631,9 @@
             link.style("display", d => activeLinks.has(d.type) && visibleIds.has(d.source.id) && visibleIds.has(d.target.id) ? null : "none");
             countLabel.textContent = `${visibleIds.size} nodes · ${graphData.links.filter(d => activeLinks.has(d.type) && visibleIds.has(d.source.id) && visibleIds.has(d.target.id)).length} relationships`;
             document.getElementById("empty-state").style.display = visibleIds.size ? "none" : "block";
-            resetSelection();
+            node.style("opacity", 1);
+            link.classed("highlight", false).style("stroke-opacity", 0.3).style("filter", "none");
+            if (window.closeSidebar) window.closeSidebar();
         }
 
         document.querySelectorAll("[data-type]").forEach(button => button.addEventListener("click", () => {
